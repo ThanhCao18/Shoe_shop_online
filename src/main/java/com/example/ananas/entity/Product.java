@@ -9,6 +9,7 @@ import lombok.experimental.FieldDefaults;
 
 import java.time.Instant;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
@@ -86,5 +87,8 @@ public class Product {
     {
         this.updateAt = Instant.now();
     }
+
+    @Column(name = "saleAt")
+    LocalDateTime saleAt;
 
 }

@@ -5,6 +5,7 @@ import com.example.ananas.dto.response.Order_Item_Response;
 import com.example.ananas.entity.Order_Item;
 import com.example.ananas.entity.Product;
 import com.example.ananas.entity.ProductVariant;
+import com.example.ananas.entity.Product_Image;
 import com.example.ananas.entity.User;
 import com.example.ananas.entity.order.Order;
 import com.example.ananas.entity.voucher.Voucher;
@@ -15,7 +16,7 @@ import org.springframework.stereotype.Component;
 
 @Generated(
     value = "org.mapstruct.ap.MappingProcessor",
-    comments = "version: 1.5.5.Final, compiler: javac, environment: Java 19 (Oracle Corporation)"
+    comments = "version: 1.5.5.Final, compiler: javac, environment: Java 22.0.1 (Oracle Corporation)"
 )
 @Component
 public class IOrderMapperImpl implements IOrderMapper {
@@ -46,6 +47,7 @@ public class IOrderMapperImpl implements IOrderMapper {
         orderResponse.setCode( orderVoucherCode( order ) );
         orderResponse.setId( order.getId() );
         orderResponse.setDescription( order.getDescription() );
+        orderResponse.setDiscount_voucher( order.getDiscount_voucher() );
         orderResponse.setTotalAmount( order.getTotalAmount() );
         orderResponse.setTotalPrice( order.getTotalPrice() );
         orderResponse.setStatus( order.getStatus() );
@@ -84,6 +86,7 @@ public class IOrderMapperImpl implements IOrderMapper {
         Order_Item_Response order_Item_Response = new Order_Item_Response();
 
         order_Item_Response.setProductVariantId( orderItemProductVariantVariantId( orderItem ) );
+        order_Item_Response.setProductId( orderItemProductVariantProductProductId( orderItem ) );
         order_Item_Response.setProductName( orderItemProductVariantProductProductName( orderItem ) );
         order_Item_Response.setDescription( orderItemProductVariantProductDescription( orderItem ) );
         order_Item_Response.setPrice_original( orderItemProductVariantProductPrice( orderItem ) );
@@ -91,6 +94,7 @@ public class IOrderMapperImpl implements IOrderMapper {
         order_Item_Response.setPrice( orderItem.getPrice() );
         order_Item_Response.setSize( orderItemProductVariantSize( orderItem ) );
         order_Item_Response.setColor( orderItemProductVariantColor( orderItem ) );
+        order_Item_Response.setImage( mapProductImagesToFirstImageUrl( orderItemProductVariantProductProductImages( orderItem ) ) );
         order_Item_Response.setQuantity( orderItem.getQuantity() );
 
         return order_Item_Response;
@@ -133,6 +137,22 @@ public class IOrderMapperImpl implements IOrderMapper {
         }
         int variantId = productVariant.getVariantId();
         return variantId;
+    }
+
+    private int orderItemProductVariantProductProductId(Order_Item order_Item) {
+        if ( order_Item == null ) {
+            return 0;
+        }
+        ProductVariant productVariant = order_Item.getProductVariant();
+        if ( productVariant == null ) {
+            return 0;
+        }
+        Product product = productVariant.getProduct();
+        if ( product == null ) {
+            return 0;
+        }
+        int productId = product.getProductId();
+        return productId;
     }
 
     private String orderItemProductVariantProductProductName(Order_Item order_Item) {
@@ -230,5 +250,24 @@ public class IOrderMapperImpl implements IOrderMapper {
             return null;
         }
         return color;
+    }
+
+    private List<Product_Image> orderItemProductVariantProductProductImages(Order_Item order_Item) {
+        if ( order_Item == null ) {
+            return null;
+        }
+        ProductVariant productVariant = order_Item.getProductVariant();
+        if ( productVariant == null ) {
+            return null;
+        }
+        Product product = productVariant.getProduct();
+        if ( product == null ) {
+            return null;
+        }
+        List<Product_Image> productImages = product.getProductImages();
+        if ( productImages == null ) {
+            return null;
+        }
+        return productImages;
     }
 }

@@ -1,5 +1,6 @@
 package com.example.ananas.repository;
 
+import com.example.ananas.entity.User;
 import com.example.ananas.entity.order.Order;
 import com.example.ananas.entity.order.OrderStatus;
 import com.example.ananas.entity.order.PaymentStatus;
@@ -12,12 +13,18 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 
 @Repository
 public interface Order_Repository extends JpaRepository<Order, Integer>, JpaSpecificationExecutor<Order> {
 
+    @Query("select o from Order o where o.user.userId = :userId")
+    Page<Order> findByUserId(@Param("userId") Integer userId, Pageable pageable);
+
+    @Query("select o from Order o where o.id = :id")
+    Order findByOrderId(@Param("id") Integer orderId);
     /*
         Page<Order> findByUser_Username(String username, Pageable pageable);
 
@@ -33,4 +40,41 @@ public interface Order_Repository extends JpaRepository<Order, Integer>, JpaSpec
     List<Order> findByUser_UsernameAndPaymentStats(@Param("username") String username, @Param("status") PaymentStatus paymentStatus);
 
      */
+
+    // Tổng tiền theo ngày
+    @Query(value = "SELECT SUM(o.total_price) " +
+            "FROM ananas.orders o " +
+            "WHERE DATE(o.created_at) = :date", nativeQuery = true)
+    BigDecimal getTotalOrderAmountByDate(@Param("date") String date);
+
+    // Tổng tiền theo các tháng trong năm
+    @Query(value = "SELECT COALESCE(SUM(o.total_price), 0) " +
+            "FROM ananas.orders o " +
+            "WHERE MONTH(o.created_at) = :month AND YEAR(o.created_at) = :year", nativeQuery = true)
+    BigDecimal getTotalOrderAmountByMonth(@Param("month") int month, @Param("year") int year);
+
+    // Tổng tiền theo các năm (6 năm trước và năm hiện tại)
+    @Query(value = "SELECT COALESCE(SUM(o.total_price), 0) " +
+            "FROM ananas.orders o " +
+            "WHERE YEAR(o.created_at) = :year", nativeQuery = true)
+    BigDecimal getTotalOrderAmountByYear(@Param("year") int year);
+
+//    // Tổng tiền theo tháng
+//    @Query(value = "SELECT SUM(o.total_price) " +
+//            "FROM ananas.orders o " +
+//            "WHERE YEAR(o.created_at) = :year AND MONTH(o.created_at) = :month", nativeQuery = true)
+//    List<BigDecimal> getTotalOrderAmountByMonth(@Param("year") int year, @Param("month") int month);
+//
+//    // Tổng tiền theo năm
+//    @Query(value = "SELECT SUM(o.total_price) " +
+//            "FROM ananas.orders o " +
+//            "WHERE YEAR(o.created_at) = :year", nativeQuery = true)
+//    List<BigDecimal> getTotalOrderAmountByYear(@Param("year") int year);
+
+    // tim user theo don hang
+    @Query(value = "SELECT u.* " +
+            "FROM ananas.user u " +
+            "INNER JOIN ananas.orders o ON u.user_id = o.user_id " +
+            "WHERE o.id = :orderId", nativeQuery = true)
+    User findUserEmailByOrderId(@Param("orderId") Integer orderId);
 }

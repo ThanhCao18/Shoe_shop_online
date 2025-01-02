@@ -1,11 +1,13 @@
 package com.example.ananas.controller;
 
+import com.example.ananas.config.ProductSpecification;
 import com.example.ananas.dto.request.ProductCreateRequest;
 import com.example.ananas.dto.response.ProductImagesResponse;
 import com.example.ananas.dto.response.ProductResponse;
 import com.example.ananas.dto.response.ResultPaginationDTO;
 import com.example.ananas.entity.Product;
 import com.example.ananas.exception.IdException;
+import com.example.ananas.service.Service.ExportService;
 import com.example.ananas.service.Service.ProductService;
 import com.example.ananas.entity.ProductVariant;
 import com.turkraft.springfilter.boot.Filter;
@@ -15,13 +17,17 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -29,6 +35,7 @@ import java.util.List;
 public class ProductController {
 
     ProductService productService;
+    ExportService exportService;
 
 
     @PostMapping("/product") //
@@ -54,6 +61,26 @@ public class ProductController {
     {
         return ResponseEntity.ok(productService.getAllProduct(spec, pageable));
     }
+    // tim liem san pham
+    @GetMapping("/product/name")
+    public ResponseEntity<ResultPaginationDTO> getAllProduct(@RequestParam String search, Pageable pageable) {
+        Specification<Product> spec = ProductSpecification.searchByName(search);
+        return ResponseEntity.ok(productService.getAllProduct(spec, pageable));
+    }
+
+    //lay ra top san pham ban chay
+    @GetMapping("/product/topseller")
+    public ResponseEntity<List< ProductResponse>> getTopSeller()
+    {
+        return ResponseEntity.ok(productService.getTopSeller());
+    }
+
+    //lay ra so luong san pham trong mot danh muc
+    @GetMapping("/product/category/{id}")
+    public ResponseEntity<Integer> getNumberProductOfCategory(@PathVariable int id)
+    {
+        return ResponseEntity.ok(this.productService.getNumberProductOfCategory(id)) ;
+    }
 
     //cap nhat san pham va cac bien the cua no
     @PutMapping("product/{id}") // can sua tinh nang sua cac bien the cua san pham
@@ -63,6 +90,7 @@ public class ProductController {
             throw new IdException("id sản phẩm không tồn tại");
         return ResponseEntity.ok(productService.updateProduct(id,productCreateRequest));
     }
+
 
     //xoa san pham
     @DeleteMapping("product/{id}") //luu y khi xoa san pham can xoa tat ca cac bien the cua no truoc moi có the xoa duoc
@@ -98,11 +126,24 @@ public class ProductController {
     @DeleteMapping("product/images/{id}")
     public ResponseEntity<String> deleteImages(@PathVariable int id) throws IdException
     {
-        if (!this.productService.exisById(id))
+        if (!this.productService.imagesExisById(id))
             throw new IdException("id ảnh không tồn tại");
         this.productService.deleteImages(id);
 
+
         return ResponseEntity.ok("xoa thành công");
+    }
+
+    @GetMapping("product/price-range")
+    public ResponseEntity<Map<String, Double>> getPriceRange() {
+        Double maxPrice = productService.getMaxPrice();
+        Double minPrice = productService.getMinPrice();
+
+        Map<String, Double> response = new HashMap<>();
+        response.put("maxPrice", maxPrice);
+        response.put("minPrice", minPrice);
+
+        return ResponseEntity.ok(response);
     }
 
 // các phương thức liên quan đến biến thể của sản phẩm
@@ -117,5 +158,56 @@ public class ProductController {
         return ResponseEntity.ok(this.productService.getAllProductVariants(id));
     }
 
+
+    @GetMapping("product/sum")
+    public ResponseEntity<Integer> getSumOfProduct(@RequestParam(name = "productId") int productId, @RequestParam(name = "color") String color, @RequestParam(name = "size") int size) throws IdException{
+        return ResponseEntity.ok(productService.getNumberOfProductBySizeAndColor(productId,color, size));
+    }
+
+    @GetMapping("product/sumVariant")
+    public ResponseEntity<Integer> getSumOfProductVariant(@RequestParam(name = "variant_id") int variant_id) throws IdException{
+        return ResponseEntity.ok(productService.getNumberOfProductVariant(variant_id));
+    }
+
+    @GetMapping("chart/product/sum")
+    public List<Map<String, Object>> getSumOfProductAdmin(){
+        return productService.getProductNameAndStock();
+    }
+
+
+    @GetMapping("/product/stock")
+    public List<Map<String, Object>> getProductNameAndStockAndCategoryName(){
+        return productService.getProductNameAndStockAndCategoryName();
+    }
+
+    @GetMapping("/product/chart")
+    public ResponseEntity<Object> getChartProduct() {
+        List<Map<String, Object>> result = productService.getMonthlyStatisticsForCurrentYear();
+        return ResponseEntity.ok(result); // Trả về kết quả dưới dạng JSON
+    }
+
+    @PostMapping("product/download")
+    public ResponseEntity<byte[]> exportToExel(@RequestParam(name = "id") int id)
+    {
+        byte[] fileContent = exportService.exportToExcel(id);
+
+        // Set content type for Excel
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Content-Disposition", "attachment; filename=products.xlsx");
+
+        return new ResponseEntity<>(fileContent, headers, HttpStatus.OK);
+    }
+
+    @GetMapping("product/top-sale")
+    public ResponseEntity<?> getTopSaleProducts(@RequestParam("filter") String filter) {
+        List<Product> products = productService.getTopSaleProducts(filter);
+        return ResponseEntity.ok(Map.of("result", products));
+    }
+
+    @GetMapping("product/least-sale")
+    public ResponseEntity<?> getLeastSaleProducts(@RequestParam("filter") String filter) {
+        List<Product> products = productService.getLeastSaleProducts(filter);
+        return ResponseEntity.ok(Map.of("result", products));
+    }
 
 }

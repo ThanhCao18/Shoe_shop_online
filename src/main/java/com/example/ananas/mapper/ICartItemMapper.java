@@ -32,6 +32,9 @@ public interface ICartItemMapper {
 
     @Named("toProductVariantCart")
     @Mapping(target = "productName", source = "product.productName")
+    @Mapping(target = "productId", source = "product.productId")
+    @Mapping(target = "price", source = "product.price")
+    @Mapping(target = "variantId", source = "variantId")
     @Mapping(target = "images", source = "product.productImages", qualifiedByName = "mapImages")
     CartItemResponse.ProductVariantCart toProductVariantCart(ProductVariant productVariant);
 

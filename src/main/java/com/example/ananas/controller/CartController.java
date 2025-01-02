@@ -1,7 +1,9 @@
 package com.example.ananas.controller;
 
 import com.example.ananas.dto.response.CartItemResponse;
+import com.example.ananas.entity.Cart;
 import com.example.ananas.entity.Cart_Item;
+import com.example.ananas.entity.User;
 import com.example.ananas.repository.User_Repository;
 import com.example.ananas.service.Service.CartService;
 import lombok.AccessLevel;
@@ -9,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,6 +25,7 @@ public class CartController {
 
     // thêm một sản phẩm vào giỏ hàng
     @PostMapping("/cart")
+    @Transactional
     public ResponseEntity<String> addProductToCart(@RequestParam(name = "userId") int userId,
                                                    @RequestParam(name = "productId") int productId, @RequestParam(name = "quantity") int quantity,
                                                    @RequestParam(name = "size") int size, @RequestParam(name = "color") String color)
@@ -46,6 +50,14 @@ public class CartController {
     {
         return ResponseEntity.ok(this.cartService.getAllCartItem(userId));
     }
+
+    @PutMapping("/cart/update")
+    @Transactional
+    public ResponseEntity<Cart> updateCartItem(@RequestParam(name = "userId") int userId, @RequestBody Cart cart){
+        return ResponseEntity.ok(cartService.updateCart(userId, cart));
+
+    }
+
     @DeleteMapping("/cart")
     public ResponseEntity<String> deleteCart(@RequestParam(name = "userId") int userId)
     {
@@ -62,6 +74,23 @@ public class CartController {
     public ResponseEntity<Integer> getSumQuantity(@RequestParam int userId)
     {
         return ResponseEntity.ok(this.cartService.getSumQuantity(userId) );
+    }
+    @DeleteMapping("cart/variant/{variantId}")
+    public ResponseEntity<String> deleteById(@RequestParam(name = "userId") int userId, @PathVariable int variantId)
+    {
+        try {
+            this.cartService.deleteByVariantId(userId,variantId);
+            return ResponseEntity.ok("success");
+        }
+        catch (Exception e)
+        {
+            return ResponseEntity.ok(e.getMessage());
+        }
+    }
+    @GetMapping("/cart/sumprice")
+    public ResponseEntity<Double> getSumPrice(@RequestParam int userId)
+    {
+        return ResponseEntity.ok(this.cartService.getSumPrice(userId));
     }
 
 }

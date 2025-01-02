@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 
 @Generated(
     value = "org.mapstruct.ap.MappingProcessor",
-    comments = "version: 1.5.5.Final, compiler: javac, environment: Java 19 (Oracle Corporation)"
+    comments = "version: 1.5.5.Final, compiler: javac, environment: Java 22.0.1 (Oracle Corporation)"
 )
 @Component
 public class IUserMapperImpl implements IUserMapper {
@@ -25,6 +25,7 @@ public class IUserMapperImpl implements IUserMapper {
         user.username( userCreateRequest.getUsername() );
         user.password( userCreateRequest.getPassword() );
         user.email( userCreateRequest.getEmail() );
+        user.phone( userCreateRequest.getPhone() );
         user.address( userCreateRequest.getAddress() );
         user.firstname( userCreateRequest.getFirstname() );
         user.lastname( userCreateRequest.getLastname() );
@@ -42,12 +43,13 @@ public class IUserMapperImpl implements IUserMapper {
 
         userResponse.userId( user.getUserId() );
         userResponse.username( user.getUsername() );
-        userResponse.password( user.getPassword() );
         userResponse.email( user.getEmail() );
+        userResponse.phone( user.getPhone() );
         userResponse.address( user.getAddress() );
         userResponse.firstname( user.getFirstname() );
         userResponse.lastname( user.getLastname() );
         userResponse.avatar( user.getAvatar() );
+        userResponse.isActive( user.getIsActive() );
 
         return userResponse.build();
     }
@@ -58,11 +60,10 @@ public class IUserMapperImpl implements IUserMapper {
             return;
         }
 
-        user.setPassword( userUpdateRequest.getPassword() );
         user.setEmail( userUpdateRequest.getEmail() );
+        user.setPhone( userUpdateRequest.getPhone() );
         user.setAddress( userUpdateRequest.getAddress() );
         user.setFirstname( userUpdateRequest.getFirstname() );
         user.setLastname( userUpdateRequest.getLastname() );
-        user.setAvatar( userUpdateRequest.getAvatar() );
     }
 }

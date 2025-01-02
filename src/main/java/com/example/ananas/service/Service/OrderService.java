@@ -5,9 +5,7 @@ import com.example.ananas.dto.request.OrderUpdateUser;
 import com.example.ananas.dto.request.Order_Items_Create;
 import com.example.ananas.dto.response.OrderResponse;
 import com.example.ananas.dto.response.ResultPaginationDTO;
-import com.example.ananas.entity.Order_Item;
-import com.example.ananas.entity.ProductVariant;
-import com.example.ananas.entity.User;
+import com.example.ananas.entity.*;
 import com.example.ananas.entity.order.Order;
 import com.example.ananas.entity.order.OrderSpecification;
 import com.example.ananas.entity.order.OrderStatus;
@@ -23,13 +21,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -49,9 +49,12 @@ public class OrderService implements IOrderService {
     Product_Repository productRepository;
 
     VoucherService voucherService;
+    Temp_Order_Repository tempOrderRepository;
 
     IOrderMapper orderMapper;
-
+    Cart_Repository cartRepository;
+    Cart_Item_Repository cartItemRepository;
+    EmailService emailService;
     @Override
     public ResultPaginationDTO getOrdersForAdmin(Pageable pageable) {
         Page<Order> orders = orderRepository.findAll(pageable);
@@ -68,8 +71,6 @@ public class OrderService implements IOrderService {
 
     @Override
     public ResultPaginationDTO getOrderByUsername(String username, Pageable pageable) {
-        // Page<Order> orders = orderRepository.findByUser_Username(username, pageable);
-        // Page<Order> orders = orderRepository.findByUser_Username(username, pageable);
         OrderSpecification specification =  new OrderSpecification(username, null, null);
         Page<Order> orders = orderRepository.findAll(specification, pageable);
         ResultPaginationDTO res = new ResultPaginationDTO();
@@ -82,6 +83,44 @@ public class OrderService implements IOrderService {
         res.setResult(orderMapper.listOrderToOrderResponse(orders.getContent()));
         return res;
     }
+    @Override
+    public ResultPaginationDTO getOrderByUserId(Integer userId, Pageable pageable) {
+        Page<Order> orders = orderRepository.findByUserId(userId, pageable);
+        ResultPaginationDTO res = new ResultPaginationDTO();
+        ResultPaginationDTO.Meta mt = new ResultPaginationDTO.Meta();
+        mt.setPage(pageable.getPageNumber()+1);
+        mt.setPageSize(pageable.getPageSize());
+        mt.setTotal(orders.getTotalElements());
+        mt.setPages(orders.getTotalPages());
+        res.setMeta(mt);
+        res.setResult(orderMapper.listOrderToOrderResponse(orders.getContent()));
+        return res;
+    }
+
+    @Override
+    public OrderResponse getOrderByOrderId(Integer orderId) {
+        Order order = orderRepository.findByOrderId(orderId);
+        if(order == null) {
+            throw new AppException(ErrException.ORDER_NOT_EXISTED);
+        }
+        return orderMapper.orderToOrderResponse(order);
+    }
+
+
+    @Override
+    public BigDecimal getSumByDay(String date) {
+        return orderRepository.getTotalOrderAmountByDate(date);
+    }
+
+    @Override
+    public BigDecimal getSumByMonth(int month, int year) {
+        return orderRepository.getTotalOrderAmountByMonth(month, year);
+    }
+
+    @Override
+    public BigDecimal getSumByYear(int year) {
+        return orderRepository.getTotalOrderAmountByYear(year);
+    }
 
     @Override
     public OrderResponse createOrder(Integer userId, OrderCreate orderCreate) {
@@ -92,7 +131,6 @@ public class OrderService implements IOrderService {
             if(user.isEmpty()) order.setUser(null);
             else order.setUser(user.get());
         }else order.setUser(null);
-
         if(orderCreate.getCode() != null)
         {
             Voucher voucher = voucherRepository.findVoucherByCode(orderCreate.getCode());
@@ -101,7 +139,6 @@ public class OrderService implements IOrderService {
 
         } else order.setVoucher(null);
 
-        // tổng giá trị của đơn hàng trước khi áp dụng voucher
         List<Order_Items_Create> items = orderCreate.getOrderItems();
         BigDecimal sum_before = BigDecimal.valueOf(0);// tổng giá sản phẩm (đã giảm giá sản sp) chưa có voucher cho toàn bộ đơn hàng
 
@@ -114,15 +151,23 @@ public class OrderService implements IOrderService {
             orderItem.setProductVariant(productVariant);
             orderItem.setOrder(order);
             orderItem.setQuantity(item.getQuantity());
-            orderItem.setPrice(BigDecimal.valueOf(productVariant.getProduct().getPrice())
-                    .multiply(BigDecimal.valueOf(productVariant.getProduct().getDiscount())
-                            .divide(BigDecimal.valueOf(100))));
+            orderItem.setPrice(BigDecimal.valueOf(productVariant.getProduct().getPrice()).subtract(
+                    BigDecimal.valueOf(productVariant.getProduct().getPrice())
+                            .multiply(BigDecimal.valueOf(productVariant.getProduct().getDiscount())
+                                    .divide(BigDecimal.valueOf(100))))
+                    );
             orderItems.add(orderItem);
 
             // Cap nhat so luong da ban trong san pham
             int totalQuantity = productVariant.getProduct().getSoldQuantity();
             productVariant.getProduct().setSoldQuantity(totalQuantity + item.getQuantity());
             productRepository.save(productVariant.getProduct());
+
+            // Cap nhat stock
+            int stock = productVariant.getStock();
+            if(stock < item.getQuantity()) throw new AppException(ErrException.NOT_ENOUGH_STOCK);
+            productVariant.setStock(stock - item.getQuantity());
+            productVariantRepository.save(productVariant);
 
             // Tính toán luôn thuộc tính suy biến ở bảng order
             sum_before = sum_before.add(orderItem.getPrice().multiply(BigDecimal.valueOf(orderItem.getQuantity())));
@@ -131,8 +176,23 @@ public class OrderService implements IOrderService {
 
         // tổng tổng giá trị của đơn hàng sau khi áp dụng voucher
         BigDecimal sum_after;
-        if(order.getVoucher() != null && voucherService.checkVoucher(order.getVoucher().getCode())) sum_after = voucherService.applyVoucher(order.getVoucher(), sum_before);
-        else sum_after = sum_before;
+        StringBuilder description = new StringBuilder();
+        if(order.getVoucher() != null && voucherService.checkVoucher(order.getVoucher().getCode(), sum_before))
+        {
+            BigDecimal discount_vourcher =  voucherService.applyVoucher(order.getVoucher(), sum_before);
+            Integer vou = discount_vourcher.setScale(0, RoundingMode.HALF_EVEN).intValue();
+            order.setDiscount_voucher(BigDecimal.valueOf(vou));
+            sum_after = sum_before.subtract(BigDecimal.valueOf(vou));
+            order.getVoucher().setUsageLimit(order.getVoucher().getUsageLimit()-1);
+            voucherRepository.save(order.getVoucher());
+        }
+        else
+        {
+            order.setVoucher(null);
+            sum_after = sum_before;
+        }
+        description.append(orderCreate.getDescription());
+        order.setDescription(description.toString());
         order.setTotalPrice(sum_after);
         order.setStatus(OrderStatus.PENDING);
         order.setPaymentStatus(PaymentStatus.UNPAID);
@@ -140,11 +200,27 @@ public class OrderService implements IOrderService {
         order.setRecipientName(orderCreate.getRecipientName());
         order.setRecipientPhone(orderCreate.getRecipientPhone());
         order.setRecipientAddress(orderCreate.getRecipientAddress());
-        order.setDescription(orderCreate.getDescription());
         order.setCreatedAt(new Timestamp(System.currentTimeMillis()));
         order.setUpdatedAt(new Timestamp(System.currentTimeMillis()));
         order.setOrderItems(orderItems);
         orderRepository.save(order);
+
+        // Update `saleAt` if status is SHIPPED or DELIVERED
+       // if (order.getStatus() == OrderStatus.SHIPPED || order.getStatus() == OrderStatus.DELIVERED) {
+            for (Order_Item orderItem : orderItems) {
+                Product product = orderItem.getProductVariant().getProduct();
+                product.setSaleAt(LocalDateTime.now());
+                productRepository.save(product);
+            }
+       // }
+
+        Optional<User> user = userRepository.findById(userId);
+
+        if (user.get().getEmail() != null && !user.get().getEmail().isEmpty()) {
+            String subject = "You have placed your order successfully";
+            String text = "\nDear "+user.get().getUsername()+"\nYour order is being prepared.Thank you for your order <3";
+            emailService.sendMessage(user.get().getEmail(), subject, text);
+        }
         return orderMapper.orderToOrderResponse(order);
     }
 
@@ -175,6 +251,10 @@ public class OrderService implements IOrderService {
             int nowQuantity = temp.getProductVariant().getProduct().getSoldQuantity();
             temp.getProductVariant().getProduct().setSoldQuantity(nowQuantity - quantity);
             productRepository.save(temp.getProductVariant().getProduct());
+
+            int stock = temp.getProductVariant().getStock();
+            temp.getProductVariant().setStock(stock + temp.getQuantity());
+            productVariantRepository.save(temp.getProductVariant());
         }
         dataEntity.clear(); // Xóa danh sách các sản phẩm cũ
 
@@ -199,6 +279,17 @@ public class OrderService implements IOrderService {
             int totalQuantity = productVariant.getProduct().getSoldQuantity();
             productVariant.getProduct().setSoldQuantity(totalQuantity + item.getQuantity());
             productRepository.save(productVariant.getProduct());
+
+            // Cap nhat stock
+            int stock = productVariant.getStock();
+            if(stock < item.getQuantity()) throw new AppException(ErrException.NOT_ENOUGH_STOCK);
+            productVariant.setStock(stock - item.getQuantity());
+            productVariantRepository.save(productVariant);
+        }
+        if(order.getVoucher() != null)
+        {
+            order.getVoucher().setUsageLimit(order.getVoucher().getUsageLimit()+1);
+            voucherRepository.save(order.getVoucher());
         }
         order.setTotalAmount(sum_before);
         if(orderUpdateUser.getCode() != null)
@@ -207,11 +298,26 @@ public class OrderService implements IOrderService {
             if(voucher == null) throw new AppException(ErrException.VOUCHER_NOT_EXISTED);
             order.setVoucher(voucher);
         }else order.setVoucher(null);
-        if(order.getVoucher() != null) sum_after = voucherService.applyVoucher(order.getVoucher(), sum_before);
-        else sum_after = sum_before;
+        StringBuilder description = new StringBuilder();
+        if(order.getVoucher() != null && voucherService.checkVoucher(order.getVoucher().getCode(), sum_before))
+        {
+            BigDecimal dis_vour = voucherService.applyVoucher(order.getVoucher(), sum_before);
+            Integer vou = dis_vour.setScale(0, RoundingMode.HALF_EVEN).intValue();
+            order.setDiscount_voucher(BigDecimal.valueOf(vou));
+            sum_after = sum_before.subtract(BigDecimal.valueOf(vou));
+            order.getVoucher().setUsageLimit(order.getVoucher().getUsageLimit()-1);
+            voucherRepository.save(order.getVoucher());
+        }
+        else
+        {
+            order.setVoucher(null);
+            order.setDiscount_voucher(null);
+            sum_after = sum_before;
+        }
         order.setTotalPrice(sum_after);
-        order.setDescription(orderUpdateUser.getDescription());
         order.setUpdatedAt(new Timestamp(System.currentTimeMillis()));
+        description.append(orderUpdateUser.getDescription());
+        order.setDescription(description.toString());
         orderRepository.save(order);
         return orderMapper.orderToOrderResponse(order);
     }
@@ -232,6 +338,32 @@ public class OrderService implements IOrderService {
         return true; // Trả về true nếu xóa thành công
     }
 
+    private void updateProductSaleAt(Order order) {
+        List<Order_Item> orderItems = order.getOrderItems(); // Assuming this fetches items in the order
+        Timestamp currentTime = new Timestamp(System.currentTimeMillis());
+
+        for (Order_Item item : orderItems) {
+            ProductVariant productVariant = item.getProductVariant(); // Assuming this gets the associated ProductVariant
+            Product product = productVariant.getProduct(); // Access the associated Product
+            product.setSaleAt(LocalDateTime.now());
+            productRepository.save(product); // Save the updated Product entity
+        }
+    }
+
+    private void resetProductSaleAt(Order order) {
+        List<Order_Item> orderItems = order.getOrderItems();
+
+        for (Order_Item orderItem : orderItems) {
+            ProductVariant productVariant = orderItem.getProductVariant();
+            Product product = productVariant.getProduct();
+
+            // Đặt lại giá trị saleAt về null hoặc giá trị mặc định
+            product.setSaleAt(LocalDateTime.from(product.getCreatedAt())); // hoặc đặt giá trị khác nếu cần
+            productRepository.save(product);
+        }
+    }
+
+
     @Override
     public OrderResponse changeOrderStatus(Integer orderId, String status) {
         Order order = orderRepository.findById(orderId)
@@ -239,10 +371,20 @@ public class OrderService implements IOrderService {
         if(order.getStatus() == OrderStatus.DELIVERED || order.getStatus() == OrderStatus.CANCELED) {
             throw new AppException(ErrException.ORDER_ERROR_STATUS);
         }
-        if(status.equalsIgnoreCase(OrderStatus.SHIPPED.name())) order.setStatus(OrderStatus.SHIPPED);
+        if(status.equalsIgnoreCase(OrderStatus.SHIPPED.name())) {
+            order.setStatus(OrderStatus.SHIPPED);
+            updateProductSaleAt(order);
+        }
         if(status.equalsIgnoreCase(OrderStatus.PENDING.name())) order.setStatus(OrderStatus.PENDING);
-        if(status.equalsIgnoreCase(OrderStatus.DELIVERED.name())) order.setStatus(OrderStatus.DELIVERED);
-        if(status.equalsIgnoreCase(OrderStatus.CANCELED.name())) order.setStatus(OrderStatus.CANCELED);
+        if(status.equalsIgnoreCase(OrderStatus.DELIVERED.name())) {
+            order.setStatus(OrderStatus.DELIVERED);
+            updateProductSaleAt(order);
+        }
+        if(status.equalsIgnoreCase(OrderStatus.CANCELED.name()))
+        {
+            order.setStatus(OrderStatus.CANCELED);
+            resetProductSaleAt(order);
+        }
         order.setUpdatedAt(new Timestamp(System.currentTimeMillis()));
         return orderMapper.orderToOrderResponse(orderRepository.save(order));
     }
@@ -254,8 +396,14 @@ public class OrderService implements IOrderService {
         if(order.getStatus() == OrderStatus.DELIVERED || order.getStatus() == OrderStatus.CANCELED) {
             throw new AppException(ErrException.ORDER_ERROR_STATUS);
         }
-        if(paymentStatus.equalsIgnoreCase(PaymentStatus.PAID.name())) order.setPaymentStatus(PaymentStatus.PAID);
-        if(paymentStatus.equalsIgnoreCase(PaymentStatus.UNPAID.name())) order.setPaymentStatus(PaymentStatus.UNPAID);
+        if(paymentStatus.equalsIgnoreCase(PaymentStatus.PAID.name())) {
+            order.setPaymentStatus(PaymentStatus.PAID);
+            updateProductSaleAt(order);
+        }
+        if(paymentStatus.equalsIgnoreCase(PaymentStatus.UNPAID.name())) {
+            order.setPaymentStatus(PaymentStatus.UNPAID);
+            resetProductSaleAt(order);
+        }
         order.setUpdatedAt(new Timestamp(System.currentTimeMillis()));
         return orderMapper.orderToOrderResponse(orderRepository.save(order));
     }
@@ -272,9 +420,14 @@ public class OrderService implements IOrderService {
             int quantity  = orderItem.getProductVariant().getProduct().getSoldQuantity();
             orderItem.getProductVariant().getProduct().setSoldQuantity(quantity - orderItem.getQuantity());
             productRepository.save(orderItem.getProductVariant().getProduct());
+
+            int stock = orderItem.getProductVariant().getStock();
+            orderItem.getProductVariant().setStock(stock + orderItem.getQuantity());
+            productVariantRepository.save(orderItem.getProductVariant());
         }
         order.setStatus(OrderStatus.CANCELED);
         order.setUpdatedAt(new Timestamp(System.currentTimeMillis()));
+        resetProductSaleAt(order);
         orderRepository.save(order);
         return true;
     }
@@ -341,5 +494,42 @@ public class OrderService implements IOrderService {
         re.setMeta(mt);
         re.setResult(orderMapper.listOrderToOrderResponse(orders.getContent()));
         return re;
+    }
+
+    @Override
+    @Transactional
+    public void handleAfterCreateOrder(int orderId) {
+        Order order = this.orderRepository.findByOrderId(orderId);
+        User user = order.getUser();
+        Cart cartDelete = this.cartRepository.findByUser(user);
+        this.cartItemRepository.deleteByCart(cartDelete);
+        this.cartRepository.deleteByUser(user);
+    }
+
+    @Override
+    public ResultPaginationDTO getAllTempOrder(Specification<TempOrder> spec, Pageable pageable) {
+        Page<TempOrder> tempOrderPage = this.tempOrderRepository.findAll(spec,pageable);
+        ResultPaginationDTO rs = new ResultPaginationDTO();
+        ResultPaginationDTO.Meta mt = new ResultPaginationDTO.Meta();
+
+        mt.setPage(pageable.getPageNumber()+1);
+        mt.setPageSize(pageable.getPageSize());
+        mt.setPages(tempOrderPage.getTotalPages());
+        mt.setTotal(tempOrderPage.getTotalElements());
+
+        rs.setMeta(mt);
+        List<TempOrder> tempOrderList = tempOrderPage.getContent();
+        rs.setResult(tempOrderList);
+        return rs;
+    }
+
+    @Override
+    public List<TempOrder> getAllTemp() {
+      return   this.tempOrderRepository.findAll();
+    }
+
+    @Override
+    public Order findOrderByOrderId(Integer orderId) {
+        return orderRepository.findByOrderId(orderId);
     }
 }

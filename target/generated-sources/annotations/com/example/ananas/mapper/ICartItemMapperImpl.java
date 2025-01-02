@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 
 @Generated(
     value = "org.mapstruct.ap.MappingProcessor",
-    comments = "version: 1.5.5.Final, compiler: javac, environment: Java 19 (Oracle Corporation)"
+    comments = "version: 1.5.5.Final, compiler: javac, environment: Java 22.0.1 (Oracle Corporation)"
 )
 @Component
 public class ICartItemMapperImpl implements ICartItemMapper {
@@ -40,6 +40,9 @@ public class ICartItemMapperImpl implements ICartItemMapper {
         CartItemResponse.ProductVariantCart productVariantCart = new CartItemResponse.ProductVariantCart();
 
         productVariantCart.setProductName( productVariantProductProductName( productVariant ) );
+        productVariantCart.setProductId( productVariantProductProductId( productVariant ) );
+        productVariantCart.setPrice( productVariantProductPrice( productVariant ) );
+        productVariantCart.setVariantId( productVariant.getVariantId() );
         List<Product_Image> productImages = productVariantProductProductImages( productVariant );
         productVariantCart.setImages( ICartItemMapper.mapImages( productImages ) );
         productVariantCart.setColor( productVariant.getColor() );
@@ -76,6 +79,30 @@ public class ICartItemMapperImpl implements ICartItemMapper {
             return null;
         }
         return productName;
+    }
+
+    private int productVariantProductProductId(ProductVariant productVariant) {
+        if ( productVariant == null ) {
+            return 0;
+        }
+        Product product = productVariant.getProduct();
+        if ( product == null ) {
+            return 0;
+        }
+        int productId = product.getProductId();
+        return productId;
+    }
+
+    private double productVariantProductPrice(ProductVariant productVariant) {
+        if ( productVariant == null ) {
+            return 0.0d;
+        }
+        Product product = productVariant.getProduct();
+        if ( product == null ) {
+            return 0.0d;
+        }
+        double price = product.getPrice();
+        return price;
     }
 
     private List<Product_Image> productVariantProductProductImages(ProductVariant productVariant) {

@@ -4,6 +4,7 @@ import com.example.ananas.entity.Order_Item;
 import com.example.ananas.entity.User;
 import com.example.ananas.entity.voucher.Voucher;
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Data;
@@ -36,6 +37,9 @@ public class Order {
 
     @Column(name = "total_amount", nullable = false)
     BigDecimal totalAmount; // tổng giá trị của đơn hàng trước khi áp dụng voucher
+
+    @Column(name = "discount_voucher")
+    BigDecimal discount_voucher;
 
     @Column(name = "total_price")
     BigDecimal totalPrice; // tổng tổng giá trị của đơn hàng sau khi áp dụng voucher
@@ -71,6 +75,7 @@ public class Order {
     Timestamp updatedAt;
 
     @OneToMany(fetch = FetchType.EAGER, mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+            @JsonManagedReference
     List<Order_Item> orderItems;
 
     public void addOrderItem(Order_Item orderItem) {
@@ -82,5 +87,5 @@ public class Order {
         if(this.paymentStatus == null)  this.paymentStatus = PaymentStatus.UNPAID;
         if(this.createdAt == null)  this.createdAt = new Timestamp(System.currentTimeMillis());
     }
-}
 
+}

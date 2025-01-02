@@ -28,6 +28,7 @@ public class VnpayService {
 
     @Value("${vnpay.ipAddress}")
     private String vnpIpAddr;
+    public String code;
 
     public String getHashSecret() {
         return vnp_HashSecret;
@@ -41,6 +42,7 @@ public class VnpayService {
         String vnpCurrCode = "VND";
         String vnpLocale = "vn"; // Hoặc "en"
         String vnpTxnRef = String.valueOf(System.currentTimeMillis()); // Mã tham chiếu giao dịch
+        code = vnpTxnRef;
         String vnpOrderType = "billpayment"; // Ví dụ mã danh mục hàng hóa
         String vnpCreateDate = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
         String vnpExpireDate = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date(System.currentTimeMillis() + 10 * 60 * 1000)); // Hết hạn trong 30 phút

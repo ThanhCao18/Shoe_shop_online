@@ -1,5 +1,6 @@
 package com.example.ananas.entity.voucher;
 
+import com.example.ananas.entity.Order_Item;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Data;
@@ -9,6 +10,8 @@ import lombok.experimental.FieldDefaults;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 @NoArgsConstructor

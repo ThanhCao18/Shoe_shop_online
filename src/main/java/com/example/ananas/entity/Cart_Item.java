@@ -27,7 +27,7 @@ public class Cart_Item {
 
 
     @ManyToOne
-    @JsonBackReference
+    @JsonBackReference("cart-cartItem") // Đặt tên trùng khớp với `JsonManagedReference` trong Cart
     @JoinColumn(name = "cart_id")
     Cart cart;
 

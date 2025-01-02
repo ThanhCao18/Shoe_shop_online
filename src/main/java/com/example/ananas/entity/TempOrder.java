@@ -1,20 +1,12 @@
 package com.example.ananas.entity;
 
-import com.example.ananas.dto.response.Order_Item_Response;
-import com.example.ananas.entity.order.OrderStatus;
-import com.example.ananas.entity.order.PaymentMethod;
-import com.example.ananas.entity.order.PaymentStatus;
-import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
-import java.math.BigDecimal;
-import java.sql.Timestamp;
 import java.time.Instant;
-import java.util.List;
 
-@Data
+
 @Setter
 @Getter
 @AllArgsConstructor
@@ -29,27 +21,14 @@ public class TempOrder {
 
     String txnRef;
 
-    int userId;
+    int orderId;
 
-    String code;
+    double sumPrice;
 
-    BigDecimal totalAmount;
 
-    BigDecimal totalPrice;
+    String status = "cancel";
 
-    OrderStatus status;
-
-    PaymentMethod paymentMethod;
-
-    PaymentStatus paymentStatus;
-
-    String recipientName;
-
-    String recipientPhone;
-
-    String recipientAddress;
-
-//    List<Order_Item_Response> orderItems;
+    //    List<Order_Item_Response> orderItems;
     private Instant createdAt;
 
     private Instant updateAt;

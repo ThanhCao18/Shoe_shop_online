@@ -29,6 +29,8 @@ public class OrderResponse {
 
     BigDecimal totalAmount;
 
+    BigDecimal discount_voucher;
+
     BigDecimal totalPrice;
 
     OrderStatus status;

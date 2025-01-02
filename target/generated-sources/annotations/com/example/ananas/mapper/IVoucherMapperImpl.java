@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 
 @Generated(
     value = "org.mapstruct.ap.MappingProcessor",
-    comments = "version: 1.5.5.Final, compiler: javac, environment: Java 19 (Oracle Corporation)"
+    comments = "version: 1.5.5.Final, compiler: javac, environment: Java 22.0.1 (Oracle Corporation)"
 )
 @Component
 public class IVoucherMapperImpl implements IVoucherMapper {
@@ -40,21 +40,36 @@ public class IVoucherMapperImpl implements IVoucherMapper {
             return;
         }
 
-        voucher.setCode( voucherResquest.getCode() );
+        if ( voucherResquest.getCode() != null ) {
+            voucher.setCode( voucherResquest.getCode() );
+        }
         if ( voucherResquest.getDiscountType() != null ) {
             voucher.setDiscountType( Enum.valueOf( DiscountType.class, voucherResquest.getDiscountType() ) );
         }
-        else {
-            voucher.setDiscountType( null );
+        if ( voucherResquest.getDiscountValue() != null ) {
+            voucher.setDiscountValue( voucherResquest.getDiscountValue() );
         }
-        voucher.setDiscountValue( voucherResquest.getDiscountValue() );
-        voucher.setDescription( voucherResquest.getDescription() );
-        voucher.setUsageLimit( voucherResquest.getUsageLimit() );
-        voucher.setMinOrderValue( voucherResquest.getMinOrderValue() );
-        voucher.setMaxDiscount( voucherResquest.getMaxDiscount() );
-        voucher.setStartDate( voucherResquest.getStartDate() );
-        voucher.setEndDate( voucherResquest.getEndDate() );
-        voucher.setCreatedAt( voucherResquest.getCreatedAt() );
+        if ( voucherResquest.getDescription() != null ) {
+            voucher.setDescription( voucherResquest.getDescription() );
+        }
+        if ( voucherResquest.getUsageLimit() != null ) {
+            voucher.setUsageLimit( voucherResquest.getUsageLimit() );
+        }
+        if ( voucherResquest.getMinOrderValue() != null ) {
+            voucher.setMinOrderValue( voucherResquest.getMinOrderValue() );
+        }
+        if ( voucherResquest.getMaxDiscount() != null ) {
+            voucher.setMaxDiscount( voucherResquest.getMaxDiscount() );
+        }
+        if ( voucherResquest.getStartDate() != null ) {
+            voucher.setStartDate( voucherResquest.getStartDate() );
+        }
+        if ( voucherResquest.getEndDate() != null ) {
+            voucher.setEndDate( voucherResquest.getEndDate() );
+        }
+        if ( voucherResquest.getCreatedAt() != null ) {
+            voucher.setCreatedAt( voucherResquest.getCreatedAt() );
+        }
     }
 
     @Override

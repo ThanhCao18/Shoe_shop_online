@@ -4,12 +4,23 @@ import com.example.ananas.dto.request.OrderCreate;
 import com.example.ananas.dto.request.OrderUpdateUser;
 import com.example.ananas.dto.response.OrderResponse;
 import com.example.ananas.dto.response.ResultPaginationDTO;
+import com.example.ananas.entity.TempOrder;
 import com.example.ananas.service.Service.OrderService;
+import com.turkraft.springfilter.boot.Filter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.YearMonth;
+import java.util.ArrayList;
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -24,10 +35,26 @@ public class OrderController {
         return ResponseEntity.ok(orderService.getOrdersForAdmin(pageable));
     }
 
+    @GetMapping("/admin/index/list")
+    public ResponseEntity<ResultPaginationDTO> getOrdersForAdminIndex (Pageable pageable) {
+        Pageable sortedByCreateAt = PageRequest.of(pageable.getPageNumber(), 5, Sort.by("createdAt").descending());
+
+        return ResponseEntity.ok(orderService.getOrdersForAdmin(sortedByCreateAt));
+    }
+
+    @GetMapping("/orderDetail/{orderId}")
+    public ResponseEntity<OrderResponse> getOrder(@PathVariable("orderId") Integer orderId) {
+        return ResponseEntity.ok(orderService.getOrderByOrderId(orderId));
+    }
     // Xem tất cả các đơn hàng theo username
-    @GetMapping("/{username}")
-    public ResponseEntity<ResultPaginationDTO> getOrderByUsername(@PathVariable String username, Pageable pageable) {
-        return ResponseEntity.ok(orderService.getOrderByUsername(username, pageable));
+    @GetMapping("/{userId}")
+    public ResponseEntity<ResultPaginationDTO> getOrderByUserId(@PathVariable("userId") Integer userId,
+                                                                @RequestParam(defaultValue = "0") int page,
+                                                                @RequestParam(defaultValue = "5") int size
+                                                                )
+    {
+        Pageable pageable = PageRequest.of(page, size);
+        return ResponseEntity.ok(orderService.getOrderByUserId(userId, pageable));
     }
 
     // Tạo đơn hàng
@@ -83,6 +110,53 @@ public class OrderController {
     @GetMapping("/admin/listOrderByPaymentStatus")
     public ResponseEntity<ResultPaginationDTO> getOrderByPaymentStatus(@RequestParam("paymentStatus") String paymentStatus, Pageable pageable) {
         return ResponseEntity.ok(orderService.getOrderByPaymentStatus(paymentStatus, pageable));
+    }
+
+    // loc gia tri don hang
+    @GetMapping("/admin/getDay")
+    public ResponseEntity<List<BigDecimal>> getOrderByDay(@RequestParam(name = "year") int year, @RequestParam(name = "month") int month) {
+        YearMonth yearMonth = YearMonth.of(year, month);
+        int daysInMonth = yearMonth.lengthOfMonth();
+        List<BigDecimal> revenues = new ArrayList<>();
+
+        for (int day = 1; day <= daysInMonth; day++) {
+            LocalDate date = LocalDate.of(year, month, day);
+            BigDecimal revenue =  orderService.getSumByDay(date.toString());
+            revenues.add(revenue);
+        }
+        return ResponseEntity.ok(revenues);
+    }
+
+    @GetMapping("/admin/getMonth")
+    public ResponseEntity<List<BigDecimal>> getOrderByMonth(@RequestParam(name = "year") int year) {
+        List<BigDecimal> revenues = new ArrayList<>();
+        for (int month = 1; month <= 12; month++) {
+            BigDecimal revenue =  orderService.getSumByMonth(month, year);
+            revenues.add(revenue);
+        }
+        return ResponseEntity.ok( revenues);
+    }
+
+    @GetMapping("/admin/getYear")
+    public ResponseEntity<List<BigDecimal>> getOrderByYear() {
+        int currentYear = LocalDate.now().getYear();
+        List<BigDecimal> revenues = new ArrayList<>();
+        for (int year = currentYear - 6; year <= currentYear; year++) {
+            BigDecimal revenue =  orderService.getSumByYear(year);
+            revenues.add(revenue);
+        }
+        return ResponseEntity.ok(revenues);
+    }
+
+    @GetMapping("/admin/temp-order")
+    public ResponseEntity<ResultPaginationDTO> getAllTempOrder(@Filter Specification<TempOrder> spec, Pageable pageable)
+    {
+        return ResponseEntity.ok(this.orderService.getAllTempOrder(spec,pageable));
+    }
+    @GetMapping("/admin/getAllTempOrder")
+    public ResponseEntity<List<TempOrder>> getAllTemp()
+    {
+        return ResponseEntity.ok(this.orderService.getAllTemp());
     }
 
 }

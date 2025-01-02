@@ -2,6 +2,8 @@ package com.example.ananas.service.Service;
 
 import com.example.ananas.dto.response.CartItemResponse;
 import com.example.ananas.entity.*;
+import com.example.ananas.exception.AppException;
+import com.example.ananas.exception.ErrException;
 import com.example.ananas.mapper.ICartItemMapper;
 import com.example.ananas.repository.*;
 import com.example.ananas.service.IService.ICartService;
@@ -11,6 +13,7 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,6 +28,7 @@ public class CartService implements ICartService {
     ICartItemMapper cartItemMapper;
     ProductVariant_Repository productVariantRepository;
     @Override
+    @Transactional
     public void addProductToCart(int userId, int productId,int size, String color, int quantity) {
         User user = this.userRepository.findById(userId).get();
         if (this.userRepository.existsById(userId)) {
@@ -42,7 +46,15 @@ public class CartService implements ICartService {
             //kiem tra san pham co ton tai khong
             Product product = this.productRepository.findById(productId).get();
 //            ProductVariant productVariantOptional = this.productVariantRepository.findProductVariantByProductAndColorAndSize(product,color,size);
-            ProductVariant productVariantOptional = this.productVariantRepository.findByProductColorAndSize(productId,color,size);
+            ProductVariant productVariantOptional = new ProductVariant();
+            try {
+               productVariantOptional  = this.productVariantRepository.findByProductColorAndSize(productId,color,size);
+            }
+            catch (Exception e)
+            {
+                e.getMessage();
+            }
+
             System.out.println("Product ID: " + productId);
             System.out.println("Color: " + color);
             System.out.println("Size: " + size);
@@ -63,10 +75,15 @@ public class CartService implements ICartService {
 
 
                     int s = cart.getSumQuantity() +1;
+                    double price = cart.getSumPrice() + this.productRepository.findById(productId).get().getPrice() * quantity;
                     cart.setSumQuantity(s);
+                    cart.setSumPrice(price);
                     this.cartRepository.save(cart);
                 } else {
                     oldCartItem.setQuantity(oldCartItem.getQuantity() + quantity);
+                    double price = cart.getSumPrice() + this.productRepository.findById(productId).get().getPrice() * quantity;
+                    cart.setSumPrice(price);
+                    this.cartRepository.save(cart);
                     this.cartItemRepository.save(oldCartItem);
                 }
             }
@@ -99,5 +116,37 @@ public class CartService implements ICartService {
         User user = this.userRepository.findById(userId).get();
         Cart currentCart = this.cartRepository.findByUser(user);
         return currentCart.getSumQuantity();
+    }
+
+    @Override
+    public Double getSumPrice(int userId) {
+        User user = this.userRepository.findById(userId).get();
+        Cart currentCart = this.cartRepository.findByUser(user);
+        return currentCart.getSumPrice();
+    }
+
+    @Transactional
+    @Override
+    public void deleteByVariantId(int userId, int variantId) {
+        User user = this.userRepository.findById(userId).get();
+        Cart currentCart = this.cartRepository.findByUser(user);
+        ProductVariant productVariant = this.productVariantRepository.findById(variantId).get();
+        Product product = productVariant.getProduct();
+        this.cartItemRepository.deleteByCartAndProductVariant(currentCart,productVariant);
+        currentCart.setSumPrice(currentCart.getSumPrice()-product.getPrice());
+        currentCart.setSumQuantity(currentCart.getSumQuantity()-1);
+
+        List<Cart_Item> cartItemList = this.cartItemRepository.findCart_ItemsByCart(currentCart);
+        if(cartItemList.size() == 0)
+            deleteCart(userId);
+    }
+
+    @Override
+    public Cart updateCart(int userid, Cart cart) {
+        User user = userRepository.findById(userid).orElseThrow(() -> new RuntimeException("User not found"));
+        Cart cartUpdate = cartRepository.findByUser(user);
+        cartUpdate.setSumQuantity(cart.getSumQuantity());
+        cartUpdate.setSumPrice(cart.getSumPrice());
+        return cartRepository.save(cartUpdate);
     }
 }

@@ -62,6 +62,15 @@
             <scope>test</scope>
         </dependency>
 
+
+        <!-- Microsoft SQL Server JDBC Driver -->
+        <dependency>
+            <groupId>com.microsoft.sqlserver</groupId>
+            <artifactId>mssql-jdbc</artifactId>
+            <version>11.2.1.jre11</version> <!-- Thay phiên bản phù hợp -->
+        </dependency>
+
+
         <!--mapstruct-->
         <dependency>
             <groupId>org.mapstruct</groupId>
@@ -87,6 +96,13 @@
             <artifactId>spring-boot-starter-mail</artifactId>
             <version>3.3.2</version>
         </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.15.2</version>
+        </dependency>
+
 
         <!-- token -->
         <dependency>
@@ -128,6 +144,21 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-elasticsearch</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.example</groupId>
+            <artifactId>Ananas</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
+
+
+            <!-- Dependency for Apache POI for Excel -->
+            <dependency>
+                <groupId>org.apache.poi</groupId>
+                <artifactId>poi-ooxml</artifactId>
+                <version>5.2.3</version>
+            </dependency>
+
+
 
 
 

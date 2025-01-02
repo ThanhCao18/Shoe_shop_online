@@ -1,8 +1,10 @@
 package com.example.ananas.controller;
+import com.example.ananas.dto.request.VoucherArchive;
 import com.example.ananas.dto.request.VoucherResquest;
 import com.example.ananas.dto.response.ResultPaginationDTO;
 import com.example.ananas.dto.response.VoucherResponse;
 import com.example.ananas.entity.voucher.Voucher;
+import com.example.ananas.entity.voucher.Voucher_User;
 import com.example.ananas.service.IService.IVoucherService;
 import com.turkraft.springfilter.boot.Filter;
 import jakarta.validation.Valid;
@@ -13,6 +15,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
@@ -24,15 +27,12 @@ public class VoucherController {
     @Autowired
     private IVoucherService voucherService;
 
-// Phương thức chung
 
     // Xem chi tiết voucher -  getVoucherDetail(String code)
     @GetMapping("/{code}")
     public ResponseEntity<VoucherResponse> getVouchersForUser(@PathVariable String code) {
         return ResponseEntity.ok(voucherService.getVouchersForUser(code));
     }
-
-// Admin riêng
 
     @GetMapping("/admin/list")
     public ResponseEntity<ResultPaginationDTO> getAllVouchersForAdmin(@Filter Specification<Voucher> specification, Pageable pageable) {
@@ -57,5 +57,30 @@ public class VoucherController {
     @DeleteMapping("/admin/delete/{code}")
     public ResponseEntity<String> deleteVoucher(@PathVariable String code) {
         return ResponseEntity.ok(voucherService.deleteVoucher(code)?"Deleted voucher!" : "Deleted voucher failed");
+    }
+
+    @PostMapping("/archiveVoucher")
+    public ResponseEntity<VoucherArchive> archiveVoucher(@RequestBody VoucherArchive voucher) {
+        return ResponseEntity.ok(voucherService.archiveVoucherByUser(voucher));
+    }
+
+    @GetMapping("/listVoucherArchive/{userId}")
+    public ResponseEntity<List<VoucherResponse>> getVoucherArchives(@PathVariable Integer userId) {
+        return ResponseEntity.ok(voucherService.getVoucherOfUser(userId));
+    }
+
+    @GetMapping("/voucherOk")
+    public ResponseEntity<List<Voucher>> getVoucherOk() {
+        return ResponseEntity.ok(voucherService.getVoucherOk());
+    }
+    @GetMapping("/getSumDiscount")
+    public ResponseEntity<BigDecimal> getSumDiscount(@RequestParam(name = "code" )String code, @RequestParam(name = "price") BigDecimal price )
+    {
+        return ResponseEntity.ok(this.voucherService.getSumDiscount(code,price));
+    }
+
+    @DeleteMapping("/voucheruser/{code}")
+    public ResponseEntity<Boolean> getVoucherUser(@PathVariable String code) {
+        return ResponseEntity.ok(voucherService.deleteVoucherUser(code));
     }
 }

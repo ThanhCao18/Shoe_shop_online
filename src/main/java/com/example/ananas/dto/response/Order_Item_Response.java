@@ -13,6 +13,7 @@ import java.math.BigDecimal;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class Order_Item_Response {
     int productVariantId;
+    int productId;
     String productName;
     int size;
     String color;

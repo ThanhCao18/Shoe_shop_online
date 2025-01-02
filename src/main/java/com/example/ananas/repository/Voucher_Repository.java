@@ -10,4 +10,6 @@ import java.util.Optional;
 @Repository
 public interface Voucher_Repository extends JpaRepository<Voucher, Integer>, JpaSpecificationExecutor<Voucher> {
     Voucher findVoucherByCode(String code);
+
+    Voucher findVoucherByVoucherId(Integer id);
 }
